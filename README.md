@@ -10,8 +10,8 @@ creating a **Windows VM** (with **no public IP**), enabling **Microsoft Entra ID
 
 ```mermaid
 flowchart TB
-    A[User with Entra ID<br>Azure Portal / Bastion Client] -->|Entra ID Auth| B[Azure Bastion (Standard Tier)]
-    B -->|Private VNet RDP| C[Windows Server VM<br>(No Public IP)]
+    A[User with Entra ID<br>Azure Portal / Bastion Client] -->|Entra ID Auth| B[Azure Bastion Standard Tier]
+    B -->|Private VNet RDP| C[Windows Server VM<br>No Public IP]
     D[Microsoft Entra ID] -->|Token Auth| B
     D -->|SSO Validation| C
 ```
