@@ -10,8 +10,8 @@ Here’s how to **securely connect to an Azure Windows VM via Azure Bastion** us
 ```mermaid
 flowchart LR
     subgraph Azure
-        A[User Workstation<br>(Azure Portal / RDP)] -->|Entra ID Auth| B[Azure Bastion]
-        B -->|Private Network (No Public IP)| C[Windows VM]
+        A[User Workstation<br>Azure Portal / RDP] -->|Entra ID Auth| B[Azure Bastion]
+        B -->|Private Network No Public IP| C[Windows VM]
         D[Microsoft Entra ID] -->|Token-Based Auth| B
         D -->|Token Validation| C
     end
