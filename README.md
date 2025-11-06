@@ -1,53 +1,122 @@
 # Bastion-Windows-RDP-using-EntraID-To-Authenticate
 
 
-Here’s how to **securely connect to an Azure Windows VM via Azure Bastion** using **Microsoft Entra ID (Azure AD)** authentication — **without exposing the VM publicly**:
+Perfect — let’s walk through the **full end-to-end setup**:
+creating a **Windows VM** (with **no public IP**), enabling **Microsoft Entra ID login**, and connecting via **Azure Bastion** — all while keeping the environment **fully private and secure**.
 
 ---
 
-## 🔒 **Architecture Overview**
+## 🏗️ **High-Level Architecture**
 
 ```mermaid
-flowchart LR
-    subgraph Azure
-        A[User Workstation<br>Azure Portal / RDP] -->|Entra ID Auth| B[Azure Bastion]
-        B -->|Private Network No Public IP| C[Windows VM]
-        D[Microsoft Entra ID] -->|Token-Based Auth| B
-        D -->|Token Validation| C
-    end
+flowchart TB
+    A[User with Entra ID<br>Azure Portal / Bastion Client] -->|Entra ID Auth| B[Azure Bastion (Standard Tier)]
+    B -->|Private VNet RDP| C[Windows Server VM<br>(No Public IP)]
+    D[Microsoft Entra ID] -->|Token Auth| B
+    D -->|SSO Validation| C
 ```
-
-**Key points:**
-
-* The VM **has no public IP**.
-* Azure Bastion provides **RDP/SSH via browser** through the **Azure Portal** or **Bastion client**.
-* Microsoft Entra ID handles **Single Sign-On (SSO)** authentication.
-* No inbound NSG rules or open RDP (3389) ports are needed.
 
 ---
 
-## ✅ **Step-by-Step Configuration**
-
-### **1. Prepare Network and VM**
-
-* Ensure the VM is deployed in a **VNet**.
-* Create a **subnet named `AzureBastionSubnet`** (minimum /27).
-* Confirm the VM **has no Public IP** and RDP (3389) is **not open** on the NSG.
+## ⚙️ **Step 1 – Create Resource Group**
 
 ```bash
-az network nsg rule delete \
+az group create \
+  --name MyRG \
+  --location eastus
+```
+
+---
+
+## 🌐 **Step 2 – Create Virtual Network and Subnets**
+
+You need two subnets:
+
+* `AzureBastionSubnet` (mandatory name)
+* `MyVMSubnet` for the VM
+
+```bash
+az network vnet create \
+  --resource-group MyRG \
+  --name MyVNet \
+  --address-prefix 10.0.0.0/16 \
+  --subnet-name MyVMSubnet \
+  --subnet-prefix 10.0.1.0/24
+
+az network vnet subnet create \
+  --resource-group MyRG \
+  --vnet-name MyVNet \
+  --name AzureBastionSubnet \
+  --address-prefix 10.0.2.0/27
+```
+
+---
+
+## 🧱 **Step 3 – Create Network Security Group**
+
+Allow only internal network access (no inbound RDP):
+
+```bash
+az network nsg create \
+  --resource-group MyRG \
+  --name MyVM-NSG
+
+# Allow Azure Bastion subnet inbound (no RDP from internet)
+az network nsg rule create \
+  --resource-group MyRG \
   --nsg-name MyVM-NSG \
-  --name "default-allow-rdp"
+  --name AllowAzureBastion \
+  --priority 100 \
+  --direction Inbound \
+  --access Allow \
+  --protocol Tcp \
+  --source-address-prefix AzureBastionSubnet \
+  --destination-port-range 3389
 ```
 
 ---
 
-### **2. Enable Entra ID Login on VM**
-
-Use Azure CLI to enable Entra ID-based login for Windows:
+## 💻 **Step 4 – Create Network Interface (No Public IP)**
 
 ```bash
-az vm identity assign --name MyVM --resource-group MyRG
+az network nic create \
+  --resource-group MyRG \
+  --name MyVMNic \
+  --vnet-name MyVNet \
+  --subnet MyVMSubnet \
+  --network-security-group MyVM-NSG
+```
+
+---
+
+## 🪟 **Step 5 – Create the Windows VM (Private Only)**
+
+Use the NIC, disable public IP, and enable Entra ID extension later.
+
+```bash
+az vm create \
+  --resource-group MyRG \
+  --name MyVM \
+  --nics MyVMNic \
+  --image Win2022Datacenter \
+  --admin-username azureuser \
+  --admin-password "StrongP@ssw0rd!" \
+  --size Standard_B2s \
+  --no-wait \
+  --public-ip-address "" \
+  --license-type Windows_Server \
+  --assign-identity
+```
+
+> ⚠️ The `--public-ip-address ""` flag ensures **no public IP** is created.
+
+---
+
+## 🔑 **Step 6 – Enable Microsoft Entra ID Login**
+
+Install the **Azure AD Login for Windows extension**:
+
+```bash
 az vm extension set \
   --publisher Microsoft.Azure.ActiveDirectory \
   --name AADLoginForWindows \
@@ -57,9 +126,12 @@ az vm extension set \
 
 ---
 
-### **3. Assign Entra Role to User**
+## 👥 **Step 7 – Assign Entra Role to Users**
 
-Assign the **Virtual Machine Administrator Login** or **Virtual Machine User Login** role to your user or group:
+Assign one of the following roles:
+
+* `Virtual Machine Administrator Login` (admin)
+* `Virtual Machine User Login` (standard user)
 
 ```bash
 az role assignment create \
@@ -70,11 +142,15 @@ az role assignment create \
 
 ---
 
-### **4. Deploy Azure Bastion**
-
-Create Bastion in the same VNet as the VM:
+## 🧰 **Step 8 – Deploy Azure Bastion**
 
 ```bash
+az network public-ip create \
+  --resource-group MyRG \
+  --name MyBastionPIP \
+  --sku Standard \
+  --allocation-method Static
+
 az network bastion create \
   --name MyBastion \
   --public-ip-address MyBastionPIP \
@@ -83,52 +159,55 @@ az network bastion create \
   --sku Standard
 ```
 
-> The **Bastion public IP** is for the Bastion service itself — not the VM.
+> The Bastion service gets a **public IP**, but **the VM remains private**.
 
 ---
 
-### **5. Connect to VM via Bastion**
+## 🧭 **Step 9 – Connect via Bastion**
 
-1. Go to **Azure Portal → VM → Connect → Bastion**
-2. Select **Microsoft Entra ID** as the **Authentication Type**
-3. Sign in using your **Entra credentials (SSO)**
-4. The RDP session opens in the browser (HTML5 client)
+1. Go to **Azure Portal → Virtual Machines → MyVM → Connect → Bastion**
+2. Choose **Authentication Type: Microsoft Entra ID**
+3. Click **Connect**
+4. Sign in using your **Entra credentials**
+   (MFA or Conditional Access applies automatically)
 
 ---
 
-### **6. Optional: Private Bastion (No Public IP at All)**
+## 🏠 **Optional: Private Bastion (No Public IP at All)**
 
-If you want *zero public exposure* — even for Bastion:
-
-* Use **Bastion with Private IP**.
-* Access through a **VPN** or **ExpressRoute** connection.
+If your enterprise has **VPN or ExpressRoute**, you can deploy **Private Bastion**:
 
 ```bash
 az network bastion create \
   --name MyPrivateBastion \
-  --vnet-name MyVNet \
   --resource-group MyRG \
+  --vnet-name MyVNet \
   --sku Standard \
   --enable-tunneling true \
   --enable-ip-connect true \
   --public-ip-address ""
 ```
 
-Then connect using the **Azure Bastion native client**:
+Then use the Azure CLI Bastion tunnel to RDP:
 
 ```bash
-az network bastion rdp --name MyPrivateBastion --target-resource-id /subscriptions/{sub}/resourceGroups/MyRG/providers/Microsoft.Compute/virtualMachines/MyVM
+az network bastion rdp \
+  --name MyPrivateBastion \
+  --resource-group MyRG \
+  --target-resource-id $(az vm show -g MyRG -n MyVM --query id -o tsv)
 ```
 
 ---
 
-## 🧠 **Best Practices**
+## 🧠 **Best Practices Summary**
 
-* ✅ Use **Entra ID-only** logins for RBAC control.
-* 🚫 Do **not** assign local admin passwords.
-* 🔐 Enable **Conditional Access + MFA** for VM access.
-* 📊 Log connections in **Azure Monitor / Log Analytics**.
-* 🧱 Ensure NSG denies inbound RDP traffic (3389).
+| Category       | Recommendation                                          |
+| -------------- | ------------------------------------------------------- |
+| **Security**   | Disable all inbound RDP rules; use Bastion only         |
+| **Identity**   | Use Entra ID roles & MFA enforcement                    |
+| **Monitoring** | Enable Azure Monitor & Log Analytics for login activity |
+| **Networking** | Keep VM in private subnet with NSG isolation            |
+| **Operations** | Use Bastion SSO and remove local admin accounts         |
 
 ---
 
