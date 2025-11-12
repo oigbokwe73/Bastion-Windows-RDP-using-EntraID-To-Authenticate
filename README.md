@@ -59,9 +59,10 @@ az network vnet subnet create `
 Allow only internal network access (no inbound RDP):
 
 ```bash
-az network nsg create \
-  --resource-group MyRG \
-  --name MyVM-NSG
+az network nsg create `
+  --resource-group MyRG `
+  --name MyVM-NSG `
+  --subscription [SUBSRIPTION]
 
 # Allow Azure Bastion subnet inbound (no RDP from internet)
 az network nsg rule create `
