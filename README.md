@@ -79,12 +79,13 @@ az network nsg rule create \
 ## 💻 **Step 4 – Create Network Interface (No Public IP)**
 
 ```bash
-az network nic create \
-  --resource-group MyRG \
-  --name MyVMNic \
-  --vnet-name MyVNet \
-  --subnet MyVMSubnet \
+az network nic create `
+  --resource-group MyRG `
+  --name MyVMNic `
+  --vnet-name MyVNet `
+  --subnet MyVMSubnet `
   --network-security-group MyVM-NSG
+  --subscription [SUBSRIPTION]
 ```
 
 ---
@@ -94,18 +95,19 @@ az network nic create \
 Use the NIC, disable public IP, and enable Entra ID extension later.
 
 ```bash
-az vm create \
-  --resource-group MyRG \
-  --name MyVM \
-  --nics MyVMNic \
-  --image Win2022Datacenter \
-  --admin-username azureuser \
-  --admin-password "StrongP@ssw0rd!" \
-  --size Standard_B2s \
-  --no-wait \
-  --public-ip-address "" \
-  --license-type Windows_Server \
+az vm create `
+  --resource-group MyRG `
+  --name MyVM `
+  --nics MyVMNic `
+  --image Win2022Datacenter `
+  --admin-username azureuser `
+  --admin-password "StrongP@ssw0rd!" `
+  --size Standard_B2s `
+  --no-wait `
+  --public-ip-address "" `
+  --license-type Windows_Server `
   --assign-identity
+  --subscription [SUBSRIPTION]
 ```
 
 > ⚠️ The `--public-ip-address ""` flag ensures **no public IP** is created.
@@ -122,6 +124,7 @@ az vm extension set \
   --name AADLoginForWindows \
   --resource-group MyRG \
   --vm-name MyVM
+  --subscription [SUBSRIPTION]
 ```
 
 ---
@@ -138,6 +141,7 @@ az role assignment create \
   --assignee user@domain.com \
   --role "Virtual Machine Administrator Login" \
   --scope $(az vm show --name MyVM --resource-group MyRG --query id -o tsv)
+  --subscription [SUBSRIPTION]
 ```
 
 ---
@@ -150,6 +154,7 @@ az network public-ip create \
   --name MyBastionPIP \
   --sku Standard \
   --allocation-method Static
+  --subscription [SUBSRIPTION]
 
 az network bastion create \
   --name MyBastion \
@@ -157,6 +162,7 @@ az network bastion create \
   --resource-group MyRG \
   --vnet-name MyVNet \
   --sku Standard
+  --subscription [SUBSRIPTION]
 ```
 
 > The Bastion service gets a **public IP**, but **the VM remains private**.
@@ -186,6 +192,7 @@ az network bastion create \
   --enable-tunneling true \
   --enable-ip-connect true \
   --public-ip-address ""
+  --subscription [SUBSRIPTION]
 ```
 
 Then use the Azure CLI Bastion tunnel to RDP:
@@ -195,6 +202,7 @@ az network bastion rdp \
   --name MyPrivateBastion \
   --resource-group MyRG \
   --target-resource-id $(az vm show -g MyRG -n MyVM --query id -o tsv)
+  --subscription [SUBSRIPTION]
 ```
 
 ---
