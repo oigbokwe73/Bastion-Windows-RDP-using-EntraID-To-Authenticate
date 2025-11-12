@@ -42,12 +42,14 @@ az network vnet create \
   --address-prefix 10.0.0.0/16 \
   --subnet-name MyVMSubnet \
   --subnet-prefix 10.0.1.0/24
+  --subscription [SUBSRIPTION]
 
-az network vnet subnet create \
-  --resource-group MyRG \
-  --vnet-name MyVNet \
-  --name AzureBastionSubnet \
-  --address-prefix 10.0.2.0/27
+az network vnet subnet create `
+  --resource-group MyRG `
+  --vnet-name MyVNet `
+  --name AzureBastionSubnet `
+  --address-prefix 10.0.2.0/27 `
+  --subscription [SUBSRIPTION]
 ```
 
 ---
@@ -62,16 +64,17 @@ az network nsg create \
   --name MyVM-NSG
 
 # Allow Azure Bastion subnet inbound (no RDP from internet)
-az network nsg rule create \
-  --resource-group MyRG \
-  --nsg-name MyVM-NSG \
-  --name AllowAzureBastion \
-  --priority 100 \
-  --direction Inbound \
-  --access Allow \
-  --protocol Tcp \
-  --source-address-prefix AzureBastionSubnet \
-  --destination-port-range 3389
+az network nsg rule create `
+  --resource-group MyRG `
+  --nsg-name MyVM-NSG `
+  --name AllowAzureBastion `
+  --priority 100 `
+  --direction Inbound `
+  --access Allow `
+  --protocol Tcp `
+  --source-address-prefix AzureBastionSubnet `
+  --destination-port-range 3389 `
+  --subscription [SUBSRIPTION]
 ```
 
 ---
@@ -84,7 +87,7 @@ az network nic create `
   --name MyVMNic `
   --vnet-name MyVNet `
   --subnet MyVMSubnet `
-  --network-security-group MyVM-NSG
+  --network-security-group MyVM-NSG `
   --subscription [SUBSRIPTION]
 ```
 
@@ -106,7 +109,7 @@ az vm create `
   --no-wait `
   --public-ip-address "" `
   --license-type Windows_Server `
-  --assign-identity
+  --assign-identity `
   --subscription [SUBSRIPTION]
 ```
 
@@ -119,11 +122,11 @@ az vm create `
 Install the **Azure AD Login for Windows extension**:
 
 ```bash
-az vm extension set \
-  --publisher Microsoft.Azure.ActiveDirectory \
-  --name AADLoginForWindows \
-  --resource-group MyRG \
-  --vm-name MyVM
+az vm extension set `
+  --publisher Microsoft.Azure.ActiveDirectory `
+  --name AADLoginForWindows `
+  --resource-group MyRG `
+  --vm-name MyVM `
   --subscription [SUBSRIPTION]
 ```
 
@@ -137,10 +140,10 @@ Assign one of the following roles:
 * `Virtual Machine User Login` (standard user)
 
 ```bash
-az role assignment create \
-  --assignee user@domain.com \
-  --role "Virtual Machine Administrator Login" \
-  --scope $(az vm show --name MyVM --resource-group MyRG --query id -o tsv)
+az role assignment create `
+  --assignee user@domain.com `
+  --role "Virtual Machine Administrator Login" `
+  --scope $(az vm show --name MyVM --resource-group MyRG --query id -o tsv) `
   --subscription [SUBSRIPTION]
 ```
 
@@ -149,19 +152,19 @@ az role assignment create \
 ## 🧰 **Step 8 – Deploy Azure Bastion**
 
 ```bash
-az network public-ip create \
-  --resource-group MyRG \
-  --name MyBastionPIP \
-  --sku Standard \
-  --allocation-method Static
+az network public-ip create `
+  --resource-group MyRG `
+  --name MyBastionPIP `
+  --sku Standard `
+  --allocation-method Static `
   --subscription [SUBSRIPTION]
 
-az network bastion create \
-  --name MyBastion \
-  --public-ip-address MyBastionPIP \
-  --resource-group MyRG \
-  --vnet-name MyVNet \
-  --sku Standard
+az network bastion create `
+  --name MyBastion `
+  --public-ip-address MyBastionPIP `
+  --resource-group MyRG `
+  --vnet-name MyVNet `
+  --sku Standard `
   --subscription [SUBSRIPTION]
 ```
 
@@ -184,24 +187,24 @@ az network bastion create \
 If your enterprise has **VPN or ExpressRoute**, you can deploy **Private Bastion**:
 
 ```bash
-az network bastion create \
-  --name MyPrivateBastion \
-  --resource-group MyRG \
-  --vnet-name MyVNet \
-  --sku Standard \
-  --enable-tunneling true \
-  --enable-ip-connect true \
-  --public-ip-address ""
+az network bastion create `
+  --name MyPrivateBastion `
+  --resource-group MyRG `
+  --vnet-name MyVNet `
+  --sku Standard `
+  --enable-tunneling true `
+  --enable-ip-connect true `
+  --public-ip-address "" `
   --subscription [SUBSRIPTION]
 ```
 
 Then use the Azure CLI Bastion tunnel to RDP:
 
 ```bash
-az network bastion rdp \
-  --name MyPrivateBastion \
-  --resource-group MyRG \
-  --target-resource-id $(az vm show -g MyRG -n MyVM --query id -o tsv)
+az network bastion rdp `
+  --name MyPrivateBastion `
+  --resource-group MyRG `
+  --target-resource-id $(az vm show -g MyRG -n MyVM --query id -o tsv) `
   --subscription [SUBSRIPTION]
 ```
 
