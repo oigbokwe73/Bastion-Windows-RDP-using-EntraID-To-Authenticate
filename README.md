@@ -36,12 +36,12 @@ You need two subnets:
 * `MyVMSubnet` for the VM
 
 ```bash
-az network vnet create \
-  --resource-group MyRG \
-  --name MyVNet \
-  --address-prefix 10.0.0.0/16 \
-  --subnet-name MyVMSubnet \
-  --subnet-prefix 10.0.1.0/24
+az network vnet create `
+  --resource-group MyRG `
+  --name MyVNet `
+  --address-prefix 10.0.0.0/16 `
+  --subnet-name MyVMSubnet `
+  --subnet-prefix 10.0.1.0/24 ` 
   --subscription [SUBSRIPTION]
 
 az network vnet subnet create `
